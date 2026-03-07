@@ -1,4 +1,4 @@
-\# ML Pipeline Anomaly Detection
+# ML Pipeline Anomaly Detection
 
 
 
@@ -6,7 +6,7 @@ This repository is a small anomaly-detection project for pipeline-style operatio
 
 
 
-\## Why I chose this problem
+## Why I chose this problem
 
 
 
@@ -14,62 +14,49 @@ I wanted an example that sits between textbook tabular ML and real industrial mo
 
 
 
-\## What is in the repo
+## What is in the repo
 
 ```text
-
 ml-pipeline-anomaly-detection/
-
 ├── artifacts/
-
 ├── data/
-
 ├── docs/
-
 ├── notebooks/
-
 ├── src/
-
 ├── .gitignore
-
 ├── README.md
-
 ```
 
 
 
-\## Models
+## Models
 
 
 
-\### 1. Isolation Forest
+### 1. Isolation Forest
 
 
 
-\### 2. Random Forest
+### 2. Random Forest
 
 
 
-\### 3. PyTorch Autoencoder
+### 3. PyTorch Autoencoder
 
 
 
-\## Current results
+## Current results
 
 
 
-\## Quick start
+## Quick start
 
 
 
 ```bash
-
 python -m venv .venv
-
 source .venv/bin/activate   # Linux/macOS
-
-\# .venv\\Scripts\\activate  # Windows
-
+# .venv\Scripts\activate  # Windows
 ```
 
 
