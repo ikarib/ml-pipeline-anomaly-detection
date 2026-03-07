@@ -1,4 +1,5 @@
 from __future__ import annotations
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -53,14 +54,16 @@ def make_sample_pipeline_data(
     )
 
 def main():
-    df = make_sample_pipeline_data()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--periods", type=int, default=720, help="Number of hourly periods to generate")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument("--output", required=True, help="Path to save the generated dataset CSV")
+    args = parser.parse_args()
 
-    Path("data").mkdir(exist_ok=True)
+    df = make_sample_pipeline_data(periods=args.periods, seed=args.seed)
+    df.to_csv(args.output, index=False)
 
-    output_path = "data/sample_pipeline_data.csv"
-    df.to_csv(output_path, index=False)
-
-    print(f"Saved dataset to {output_path}")
+    print(f"Saved dataset to {args.output}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,9 @@
+data:
+  input_path: data/sample_pipeline_data.csv
+
+features:
+  short_rolling_window: 5
+  long_rolling_window: 12
+
+output:
+  figure_path: artifacts/pressure_series.png
