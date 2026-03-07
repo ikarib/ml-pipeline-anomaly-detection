@@ -31,11 +31,11 @@ def make_sample_pipeline_data(
         "pressure_and_flow_divergence": slice(640, 651),
     }
 
-    pressure[windows["pressure_spike"]] += rng.normal(14, 2, len(range(110, 118)))
-    flow[windows["flow_drop"]] -= rng.normal(16, 2.5, len(range(280, 290)))
-    temp[windows["temperature_surge"]] += rng.normal(10, 1.0, len(range(505, 514)))
-    pressure[windows["pressure_and_flow_divergence"]] += rng.normal(9, 1.5, len(range(640, 651)))
-    flow[windows["pressure_and_flow_divergence"]] -= rng.normal(11, 1.7, len(range(640, 651)))
+    pressure[windows["pressure_spike"]] += rng.normal(14, 2, len(range(*windows["pressure_spike"].indices(periods))))
+    flow[windows["flow_drop"]] -= rng.normal(16, 2.5, len(range(*windows["flow_drop"].indices(periods))))
+    temp[windows["temperature_surge"]] += rng.normal(10, 1.0, len(range(*windows["temperature_surge"].indices(periods))))
+    pressure[windows["pressure_and_flow_divergence"]] += rng.normal(9, 1.5, len(range(*windows["pressure_and_flow_divergence"].indices(periods))))
+    flow[windows["pressure_and_flow_divergence"]] -= rng.normal(11, 1.7, len(range(*windows["pressure_and_flow_divergence"].indices(periods))))
 
     for name, slc in windows.items():
         is_anomaly[slc] = 1
