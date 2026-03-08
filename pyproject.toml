@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anomaly_pipeline"
+version = "0.1.0"
+description = "Anomaly detection pipeline for synthetic sensor data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Iskander Karibzhanov"}]
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "matplotlib>=3.8",
+  "pyyaml>=6.0",
+  "scikit-learn>=1.4",
+  "jupyter>=1.0"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}

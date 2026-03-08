@@ -6,13 +6,13 @@ import yaml
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.feature_engineering import load_and_engineer_features
+from anomaly_pipeline.feature_engineering import load_and_engineer_features
+from anomaly_pipeline.model_training import train_isolation_forest
+from anomaly_pipeline.reporting import metrics_table
 
 def load_config(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
-from src.model_training import train_isolation_forest
-from src.reporting import metrics_table
 
 def main() -> None:
     parser = argparse.ArgumentParser()

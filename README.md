@@ -19,6 +19,7 @@ Pipeline telemetry is a good fit because the data are sequential, the operating 
 ```text
 ml-pipeline-anomaly-detection/
 ├── artifacts/
+│   ├── metrics_summary.csv
 │   ├── pressure_series.png
 ├── configs/
 │   ├── baseline.yaml
@@ -26,12 +27,14 @@ ml-pipeline-anomaly-detection/
 │   └── sample_pipeline_data.csv
 ├── docs/
 │   ├── experiment_notes.md
+│   ├── limitations.md
 ├── notebooks/
 ├── src/
 │   ├── data_generation.py
 │   ├── feature_engineering.py
 │   ├── model_training.py
 │   ├── pipeline.py
+│   └── reporting.py
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -74,15 +77,17 @@ Results were generated from the included sample dataset.
 
 ## Quick start
 
-
-
+Create virtual environment, activate it and Install dependencies:
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
 # .venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-python -m src.data_generation --output data/sample_pipeline_data.csv --periods=720 --seed=42
-python -m src.pipeline --config configs/baseline.yaml
+make install
+```
+
+Run the full pipeline:
+```bash
+make pipeline
 ```
 
 ## Key files to inspect first
