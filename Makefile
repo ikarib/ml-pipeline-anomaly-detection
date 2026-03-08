@@ -12,7 +12,7 @@ train:
 pipeline: data train
 
 notebook:
-	jupyter notebook
+	jupyter notebook notebooks/anomaly_detection_walkthrough.ipynb
 
 clean:
 	rm -rf artifacts/*

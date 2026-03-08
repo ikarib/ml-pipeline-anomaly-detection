@@ -29,6 +29,7 @@ ml-pipeline-anomaly-detection/
 │   ├── experiment_notes.md
 │   ├── limitations.md
 ├── notebooks/
+│   └── anomaly_detection_walkthrough.ipynb
 ├── src/
 │   ├── data_generation.py
 │   ├── feature_engineering.py
@@ -93,7 +94,6 @@ make pipeline
 ## Key files to inspect first
 
 - `docs/experiment_notes.md` for the modeling story
-
-
+- `artifacts/metrics_summary.csv` for the headline numbers
 
 
