@@ -1,0 +1,2 @@
+model,precision,recall,f1,true_negative,false_positive,false_negative,true_positive,roc_auc,average_precision
+Isolation Forest,0.7272727272727273,0.8421052631578947,0.7804878048780488,670,12,6,32,0.9858388640222256,0.7639344226266103

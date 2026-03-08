@@ -25,10 +25,13 @@ ml-pipeline-anomaly-detection/
 ├── data/
 │   └── sample_pipeline_data.csv
 ├── docs/
+│   ├── experiment_notes.md
 ├── notebooks/
 ├── src/
 │   ├── data_generation.py
 │   ├── feature_engineering.py
+│   ├── model_training.py
+│   ├── pipeline.py
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -45,12 +48,12 @@ The sample dataset is synthetically generated and includes:
 Short rolling windows (5) are used to capture local fluctuations and short-term volatility, while longer windows (12) provide a more stable estimate of the baseline distribution used for Z-score anomaly detection.
 
 
-## Models
+## Models and why they are here
 
 
 
 ### 1. Isolation Forest
-
+I kept Isolation Forest as the unsupervised baseline because in real operations labels are often sparse or delayed. It is useful as a “what looks unusual?” first pass.
 
 
 ### 2. Random Forest
@@ -63,8 +66,11 @@ Short rolling windows (5) are used to capture local fluctuations and short-term 
 
 ## Current results
 
+Results were generated from the included sample dataset.
 
-
+| model | precision | recall | f1 | roc_auc |
+|---|---:|---:|---:|---:|
+| Isolation Forest | 0.727 | 0.842 | 0.780 | 0.988 |
 
 ## Quick start
 
@@ -79,6 +85,9 @@ python -m src.data_generation --output data/sample_pipeline_data.csv --periods=7
 python -m src.pipeline --config configs/baseline.yaml
 ```
 
+## Key files to inspect first
+
+- `docs/experiment_notes.md` for the modeling story
 
 
 

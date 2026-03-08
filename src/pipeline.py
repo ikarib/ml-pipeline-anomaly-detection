@@ -11,7 +11,9 @@ from src.feature_engineering import load_and_engineer_features
 def load_config(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
-    
+from src.model_training import train_isolation_forest
+from src.reporting import metrics_table
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
@@ -23,6 +25,7 @@ def main() -> None:
     short_window = config["features"]["short_rolling_window"]
     long_window = config["features"]["long_rolling_window"]
     figure_path = config["output"]["figure_path"]
+    metrics_path = config["output"]["metrics_path"]
 
     df, X, y = load_and_engineer_features(str(data_path), short_window, long_window)
 
@@ -43,6 +46,13 @@ def main() -> None:
     plt.close(fig)
     print(f"Saved figure to {figure_path}")
 
+    iso = train_isolation_forest(X, y,
+        contamination=config["model_isolation_forest"]["contamination"],
+        random_state=config["model_isolation_forest"]["random_state"],
+        n_estimators=config["model_isolation_forest"]["n_estimators"])
+    summary = metrics_table([iso])
+    summary.to_csv(metrics_path, index=False)
+    print(f"Saved metrics summary table to {metrics_path}")
 
 if __name__ == "__main__":
     main()
