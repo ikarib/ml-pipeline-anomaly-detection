@@ -7,7 +7,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from anomaly_pipeline.feature_engineering import load_and_engineer_features
-from anomaly_pipeline.model_training import train_isolation_forest
+from anomaly_pipeline.model_training import (
+    train_isolation_forest,
+    train_random_forest,
+)
 from anomaly_pipeline.reporting import metrics_table
 
 def load_config(path):
@@ -24,35 +27,49 @@ def main() -> None:
     data_path = config["data"]["input_path"]
     short_window = config["features"]["short_rolling_window"]
     long_window = config["features"]["long_rolling_window"]
-    figure_path = config["output"]["figure_path"]
+    true_anomalies_path = config["output"]["true_anomalies_path"]
+    isolation_forest_scores_path = config["output"]["isolation_forest_scores_path"]
     metrics_path = config["output"]["metrics_path"]
 
     df, X, y = load_and_engineer_features(str(data_path), short_window, long_window)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(pd.to_datetime(df["timestamp"]), df["pressure_psi"], label="Pressure")
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(df["timestamp"], df["pressure_psi"], label="Pressure (psi)")
     ax.scatter(
-        pd.to_datetime(df.loc[y == 1, "timestamp"]),
+        df.loc[y == 1, "timestamp"],
         df.loc[y == 1, "pressure_psi"],
         marker="x",
-        label="True anomalies",
+        label="True anomaly",
     )
-    ax.set_title("Pressure series with labeled anomalies")
+    ax.set_title("Pressure with labeled anomalies")
     ax.set_xlabel("Timestamp")
     ax.set_ylabel("Pressure (psi)")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(figure_path)
+    fig.savefig(true_anomalies_path)
     plt.close(fig)
-    print(f"Saved figure to {figure_path}")
+    print(f"Saved pressure figure to {true_anomalies_path}")
 
-    iso = train_isolation_forest(X, y,
-        contamination=config["model_isolation_forest"]["contamination"],
-        random_state=config["model_isolation_forest"]["random_state"],
-        n_estimators=config["model_isolation_forest"]["n_estimators"])
-    summary = metrics_table([iso])
+    iso = train_isolation_forest(X, y, options=config["model_isolation_forest"])
+    rf = train_random_forest(X, y, options=config["model_random_forest"])
+
+    summary = metrics_table([iso, rf])
     summary.to_csv(metrics_path, index=False)
     print(f"Saved metrics summary table to {metrics_path}")
+
+    output_path = config['model_random_forest']['feature_importance_path']
+    rf.artifacts["feature_importance"].to_csv(output_path, index=False)
+    print(f"Saved feature importance table to {output_path}")
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(df["timestamp"], iso.scores, label="Isolation Forest anomaly score")
+    ax.set_title("Isolation Forest Scores Over Time")
+    ax.set_xlabel("Timestamp")
+    ax.set_ylabel("Anomaly score")
+    fig.tight_layout()
+    fig.savefig(isolation_forest_scores_path)
+    plt.close(fig)
+    print(f"Saved isolation forest scores figure to {isolation_forest_scores_path}")
 
 if __name__ == "__main__":
     main()

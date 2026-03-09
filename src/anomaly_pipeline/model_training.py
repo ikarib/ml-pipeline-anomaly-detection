@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
+from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
@@ -14,6 +14,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.model_selection import train_test_split
 
 
 @dataclass
@@ -48,14 +49,13 @@ def _metric_dict(y_true: np.ndarray, y_pred: np.ndarray, y_score: np.ndarray | N
 def train_isolation_forest(
     X: pd.DataFrame,
     y: pd.Series,
-    contamination: float = 0.06,
-    random_state: int = 42,
-    n_estimators: int = 300,
+    options: dict[str, Any] | None = None
 ) -> TrainResult:
+    options = options or {}
     model = IsolationForest(
-        n_estimators=n_estimators,
-        contamination=contamination,
-        random_state=random_state,
+        n_estimators=options.get("n_estimators", 300),
+        contamination=options.get("contamination", 0.06),
+        random_state=options.get("random_state", 42),
     )
     model.fit(X)
     scores = -model.score_samples(X)
@@ -66,7 +66,43 @@ def train_isolation_forest(
         predictions=preds,
         scores=scores,
         metrics=metrics,
-        artifacts={"model": model, "contamination": contamination},
+        artifacts={"model": model, "contamination": model.contamination},
     )
 
 
+def train_random_forest(
+    X: pd.DataFrame,
+    y: pd.Series,
+    options: dict[str, Any] | None = None
+) -> TrainResult:
+    options = options or {}
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, stratify=y,
+        test_size=options.get("test_size", 0.25),
+        random_state=options.get("random_state", 42)
+    )
+    model = RandomForestClassifier(
+        n_estimators=options.get("n_estimators", 350),
+        max_depth=options.get("max_depth", 10),
+        min_samples_leaf=options.get("min_samples_leaf", 2),
+        class_weight=options.get("class_weight", "balanced_subsample"),
+        random_state=options.get("random_state", 42),
+    )
+    model.fit(X_train, y_train)
+    scores = model.predict_proba(X)[:, 1]
+    preds = (scores >= 0.5).astype(int)
+    metrics = _metric_dict(y.to_numpy(), preds, scores)
+    feature_importance = pd.DataFrame(
+        {"feature": X.columns, "importance": model.feature_importances_}
+    ).sort_values("importance", ascending=False)
+    return TrainResult(
+        name="Random Forest",
+        predictions=preds,
+        scores=scores,
+        metrics=metrics,
+        artifacts={
+            "model": model,
+            "holdout_score": float(model.score(X_test, y_test)),
+            "feature_importance": feature_importance.reset_index(drop=True),
+        },
+    )

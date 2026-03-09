@@ -1,5 +1,13 @@
 .PHONY: install data train pipeline notebook clean
 
+ifeq ($(OS),Windows_NT)
+RM_CACHE = rd /s /q __pycache__ 2>nul || exit /b 0
+RM_ARTIFACTS = del /q artifacts\* 2>nul || exit /b 0
+else
+RM_CACHE = rm -rf __pycache__
+RM_ARTIFACTS = rm -rf artifacts/*
+endif
+
 install:
 	pip install -r requirements.txt -e .
 
@@ -12,9 +20,8 @@ train:
 pipeline: data train
 
 notebook:
-	jupyter notebook notebooks/anomaly_detection_walkthrough.ipynb
+	jupyter notebook notebooks/anomaly_detection.ipynb
 
 clean:
-	rm -rf artifacts/*
-	rm -rf __pycache__
-	.PHONY: install data train pipeline notebook clean
+	$(RM_CACHE)
+	$(RM_ARTIFACTS)

@@ -1,4 +1,5 @@
 # Experiment Notes
+## Problem framing
 The goal was to detect unusual operating windows in pipeline-style telemetry with three kinds of signals:
 - pressure,
 - flow,
@@ -35,3 +36,7 @@ I did not jump straight to sequence models because the first thing I wanted to t
 
 ### Isolation Forest
 This worked reasonably well as a label-light baseline. It found many anomalous windows, but the tradeoff was false positives around regime changes.
+### Random Forest
+This became the strongest model on the labeled sample. The main lesson was not “Random Forest is always best,” but that the engineered features capture enough local structure to make supervised learning effective on this dataset.
+## Feature importance notes
+The strongest Random Forest feature was `pressure_flow_ratio`, followed by temperature and rolling flow statistics. That aligns with how anomalies were injected: several abnormal windows were created by making pressure and flow diverge rather than just moving one variable in isolation.

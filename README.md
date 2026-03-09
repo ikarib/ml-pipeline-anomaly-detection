@@ -19,8 +19,10 @@ Pipeline telemetry is a good fit because the data are sequential, the operating 
 ```text
 ml-pipeline-anomaly-detection/
 ├── artifacts/
+│   ├── isolation_forest_scores.png
 │   ├── metrics_summary.csv
-│   ├── pressure_series.png
+│   ├── random_forest_feature_importance.csv
+│   ├── true_anomalies.png
 ├── configs/
 │   ├── baseline.yaml
 ├── data/
@@ -29,7 +31,7 @@ ml-pipeline-anomaly-detection/
 │   ├── experiment_notes.md
 │   ├── limitations.md
 ├── notebooks/
-│   └── anomaly_detection_walkthrough.ipynb
+│   └── anomaly_detection.ipynb
 ├── src/
 │   ├── data_generation.py
 │   ├── feature_engineering.py
@@ -37,7 +39,9 @@ ml-pipeline-anomaly-detection/
 │   ├── pipeline.py
 │   └── reporting.py
 ├── .gitignore
+├── Makefile
 ├── README.md
+├── pyproject.toml
 └── requirements.txt
 ```
 
@@ -57,14 +61,12 @@ Short rolling windows (5) are used to capture local fluctuations and short-term 
 
 
 ### 1. Isolation Forest
-I kept Isolation Forest as the unsupervised baseline because in real operations labels are often sparse or delayed. It is useful as a “what looks unusual?” first pass.
+I used Isolation Forest as the unsupervised baseline because in real operations labels are often sparse or delayed. It is useful as a “what looks unusual?” first pass.
 
 
 ### 2. Random Forest
+This acts as a supervised benchmark on the labeled sample. It is not the most advanced model here, but it gives a good reference point for whether the engineered features are informative.
 
-
-
-### 3. PyTorch Autoencoder
 
 
 
@@ -75,7 +77,10 @@ Results were generated from the included sample dataset.
 | model | precision | recall | f1 | roc_auc |
 |---|---:|---:|---:|---:|
 | Isolation Forest | 0.727 | 0.842 | 0.780 | 0.988 |
+| Random Forest | 1.000 | 0.974 | 0.987 | 1.000 |
 
+A few takeaways:
+- The **Random Forest** is strongest here because the dataset is labeled and the anomaly patterns are learnable from engineered features.
 ## Quick start
 
 Create virtual environment, activate it and Install dependencies:
@@ -95,5 +100,6 @@ make pipeline
 
 - `docs/experiment_notes.md` for the modeling story
 - `artifacts/metrics_summary.csv` for the headline numbers
+- `artifacts/random_forest_feature_importance.csv` for the strongest signals
 
 
