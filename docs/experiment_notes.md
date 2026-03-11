@@ -38,5 +38,15 @@ I did not jump straight to sequence models because the first thing I wanted to t
 This worked reasonably well as a label-light baseline. It found many anomalous windows, but the tradeoff was false positives around regime changes.
 ### Random Forest
 This became the strongest model on the labeled sample. The main lesson was not “Random Forest is always best,” but that the engineered features capture enough local structure to make supervised learning effective on this dataset.
+### Autoencoder
+The autoencoder trained cleanly and produced a sensible reconstruction-error ranking. However, its practical usefulness depends heavily on thresholding. With the current setting, precision is acceptable but recall is weaker than Isolation Forest.
 ## Feature importance notes
 The strongest Random Forest feature was `pressure_flow_ratio`, followed by temperature and rolling flow statistics. That aligns with how anomalies were injected: several abnormal windows were created by making pressure and flow diverge rather than just moving one variable in isolation.
+## What I would do next
+
+For a stronger production-style version, I would:
+- evaluate on a true future holdout window,
+- convert point anomalies into event-level alerts,
+- add calibration logic for alert volume,
+- compare against a gradient-boosted tree baseline,
+- test robustness under stronger regime drift.

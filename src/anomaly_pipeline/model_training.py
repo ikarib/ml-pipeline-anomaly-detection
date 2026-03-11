@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import torch
 from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.metrics import (
     average_precision_score,
@@ -13,8 +14,12 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    precision_recall_curve,
 )
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
 
 
 @dataclass
@@ -24,6 +29,27 @@ class TrainResult:
     scores: np.ndarray
     metrics: dict[str, float]
     artifacts: dict[str, Any]
+
+class Autoencoder(nn.Module):
+    def __init__(self, input_dim: int) -> None:
+        super().__init__()
+        hidden_dim = max(16, input_dim)
+        bottleneck_dim = max(4, input_dim // 3)
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, bottleneck_dim),
+            nn.ReLU(),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(bottleneck_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, input_dim),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.decoder(self.encoder(x))
+
 
 def _metric_dict(y_true: np.ndarray, y_pred: np.ndarray, y_score: np.ndarray | None = None) -> dict[str, float]:
     metrics = {
@@ -104,5 +130,94 @@ def train_random_forest(
             "model": model,
             "holdout_score": float(model.score(X_test, y_test)),
             "feature_importance": feature_importance.reset_index(drop=True),
+        },
+    )
+
+def _train_autoencoder(
+    X_scaled: np.ndarray,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    random_state: int,
+) -> tuple[Autoencoder, list[float]]:
+    torch.manual_seed(random_state)
+    np.random.seed(random_state)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tensor = torch.tensor(X_scaled, dtype=torch.float32)
+    loader = DataLoader(TensorDataset(tensor), batch_size=batch_size, shuffle=True)
+    model = Autoencoder(input_dim=X_scaled.shape[1]).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss()
+
+    history: list[float] = []
+    model.train()
+    for _ in range(epochs):
+        epoch_loss = 0.0
+        for (batch,) in loader:
+            batch = batch.to(device)
+            optimizer.zero_grad()
+            reconstructed = model(batch)
+            loss = criterion(reconstructed, batch)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item() * len(batch)
+        history.append(epoch_loss / len(X_scaled))
+    return model, history
+
+
+def train_autoencoder_anomaly_detector(
+    X: pd.DataFrame,
+    y: pd.Series,
+    options: dict[str, Any] | None = None
+) -> TrainResult:
+    options = options or {}
+    X_np = X.to_numpy(dtype=np.float32)
+    y_np = y.to_numpy()
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_np).astype(np.float32)
+
+    normal_rows = X_scaled[y_np == 0]
+    train_matrix = normal_rows if len(normal_rows) else X_scaled
+
+    model, history = _train_autoencoder(
+        train_matrix,
+        epochs=options.get("epochs", 50),
+        batch_size=options.get("batch_size", 32),
+        learning_rate=options.get("learning_rate", 0.001),
+        random_state=options.get("random_state", 42),
+    )
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.eval()
+    with torch.no_grad():
+        full_tensor = torch.tensor(X_scaled, dtype=torch.float32).to(device)
+        reconstructed = model(full_tensor).cpu().numpy()
+
+    reconstruction_error = np.mean((X_scaled - reconstructed) ** 2, axis=1)
+    threshold_quantile = options.get("threshold_quantile", 0.96)
+    threshold = float(np.quantile(reconstruction_error, threshold_quantile))
+    preds = (reconstruction_error >= threshold).astype(int)
+    metrics = _metric_dict(y_np, preds, reconstruction_error)
+
+    precisions, recalls, thresholds = precision_recall_curve(y_np, reconstruction_error)
+    pr_table = pd.DataFrame(
+        {
+            "precision": precisions[:-1],
+            "recall": recalls[:-1],
+            "threshold": thresholds,
+        }
+    )
+    return TrainResult(
+        name="PyTorch Autoencoder",
+        predictions=preds,
+        scores=reconstruction_error,
+        metrics=metrics,
+        artifacts={
+            "model": model,
+            "scaler": scaler,
+            "history": history,
+            "threshold": threshold,
+            "threshold_quantile": threshold_quantile,
+            "pr_table": pr_table,
         },
     )

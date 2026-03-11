@@ -19,6 +19,8 @@ Pipeline telemetry is a good fit because the data are sequential, the operating 
 ```text
 ml-pipeline-anomaly-detection/
 ├── artifacts/
+│   ├── autoencoder_threshold_sweep.csv
+│   ├── autoencoder_training_history.csv
 │   ├── isolation_forest_scores.png
 │   ├── metrics_summary.csv
 │   ├── random_forest_feature_importance.csv
@@ -30,6 +32,7 @@ ml-pipeline-anomaly-detection/
 ├── docs/
 │   ├── experiment_notes.md
 │   ├── limitations.md
+│   └── what_did_not_work.md
 ├── notebooks/
 │   └── anomaly_detection.ipynb
 ├── src/
@@ -67,8 +70,8 @@ I used Isolation Forest as the unsupervised baseline because in real operations 
 ### 2. Random Forest
 This acts as a supervised benchmark on the labeled sample. It is not the most advanced model here, but it gives a good reference point for whether the engineered features are informative.
 
-
-
+### 3. PyTorch Autoencoder
+I added the autoencoder to show a neural approach based on reconstruction error. In practice, the point was not to “beat everything with deep learning,” but to compare how a compact neural model behaves against classical baselines on structured sensor data.
 
 ## Current results
 
@@ -78,9 +81,15 @@ Results were generated from the included sample dataset.
 |---|---:|---:|---:|---:|
 | Isolation Forest | 0.727 | 0.842 | 0.780 | 0.988 |
 | Random Forest | 1.000 | 0.974 | 0.987 | 1.000 |
+| PyTorch Autoencoder | 0.793 | 0.605 | 0.687 | 0.966 |
 
 A few takeaways:
 - The **Random Forest** is strongest here because the dataset is labeled and the anomaly patterns are learnable from engineered features.
+- **Isolation Forest** is more useful than the autoencoder in this version when recall matters.
+- The **autoencoder** is viable, but it is sensitive to threshold choice and loses recall at the selected operating point.
+## Why I picked the current autoencoder threshold
+
+I set the default autoencoder threshold using the **96th percentile** of reconstruction error. I chose that because lower thresholds created too many alerts, while higher thresholds suppressed medium-strength anomalies. The full threshold sweep is saved in `artifacts/autoencoder_threshold_sweep.csv`.
 ## Quick start
 
 Create virtual environment, activate it and Install dependencies:
@@ -101,5 +110,12 @@ make pipeline
 - `docs/experiment_notes.md` for the modeling story
 - `artifacts/metrics_summary.csv` for the headline numbers
 - `artifacts/random_forest_feature_importance.csv` for the strongest signals
+- `docs/what_did_not_work.md` for the non-polished part of the project
 
+## Next extensions I would do
 
+- train/test splits based on time rather than random holdout,
+- drift-aware monitoring,
+- event grouping so adjacent anomaly rows are handled as incidents,
+- geospatial context if this were tied to an actual asset network,
+- a small dashboard for triage.

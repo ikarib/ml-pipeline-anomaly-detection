@@ -19,6 +19,15 @@ model_random_forest:
   random_state: 42
   feature_importance_path: artifacts/random_forest_feature_importance.csv
 
+model_autoencoder:
+    epochs: 50
+    batch_size: 32
+    learning_rate: 0.001
+    threshold_quantile: 0.96
+    random_state: 42
+    training_history_path: artifacts/autoencoder_training_history.csv
+    threshold_sweep_path: artifacts/autoencoder_threshold_sweep.csv
+
 output:
   true_anomalies_path: artifacts/true_anomalies.png
   isolation_forest_scores_path: artifacts/isolation_forest_scores.png
