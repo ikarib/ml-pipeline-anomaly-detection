@@ -19,6 +19,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch import nn
+from xgboost import XGBClassifier
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -49,6 +50,14 @@ class Autoencoder(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.decoder(self.encoder(x))
+
+
+def _feature_importance_frame(feature_names: pd.Index, importance: np.ndarray) -> pd.DataFrame:
+    return (
+        pd.DataFrame({"feature": list(feature_names), "importance": importance})
+        .sort_values("importance", ascending=False)
+        .reset_index(drop=True)
+    )
 
 
 def _metric_dict(y_true: np.ndarray, y_pred: np.ndarray, y_score: np.ndarray | None = None) -> dict[str, float]:
@@ -118,9 +127,7 @@ def train_random_forest(
     scores = model.predict_proba(X)[:, 1]
     preds = (scores >= 0.5).astype(int)
     metrics = _metric_dict(y.to_numpy(), preds, scores)
-    feature_importance = pd.DataFrame(
-        {"feature": X.columns, "importance": model.feature_importances_}
-    ).sort_values("importance", ascending=False)
+    feature_importance = _feature_importance_frame(X.columns, model.feature_importances_)
     return TrainResult(
         name="Random Forest",
         predictions=preds,
@@ -129,9 +136,51 @@ def train_random_forest(
         artifacts={
             "model": model,
             "holdout_score": float(model.score(X_test, y_test)),
-            "feature_importance": feature_importance.reset_index(drop=True),
+            "feature_importance": feature_importance,
         },
     )
+
+
+
+def train_xgboost(
+    X: pd.DataFrame,
+    y: pd.Series,
+    options: dict[str, Any] | None = None
+) -> TrainResult:
+    options = options or {}
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, stratify=y,
+        test_size=options.get("test_size", 0.25),
+        random_state=options.get("random_state", 42)
+    )
+    model = XGBClassifier(
+        n_estimators=options.get("n_estimators", 350),
+        learning_rate=options.get("learning_rate", 0.05),
+        max_depth=options.get("max_depth", 6),
+        subsample=options.get("subsample", 0.9),
+        colsample_bytree=options.get("colsample_bytree", 0.9),
+        reg_lambda=options.get("reg_lambda", 1.0),
+        scale_pos_weight=options.get("scale_pos_weight", 8.0),
+        random_state=options.get("random_state", 42),
+        eval_metric=options.get("eval_metric", "logloss"),
+    )
+    model.fit(X_train, y_train)
+    scores = model.predict_proba(X)[:, 1]
+    preds = (scores >= 0.5).astype(int)
+    metrics = _metric_dict(y.to_numpy(), preds, scores)
+    feature_importance = _feature_importance_frame(X.columns, model.feature_importances_)
+    return TrainResult(
+        name="XGBoost",
+        predictions=preds,
+        scores=scores,
+        metrics=metrics,
+        artifacts={
+            "model": model,
+            "holdout_score": float(model.score(X_test, y_test)),
+            "feature_importance": feature_importance,
+        },
+    )
+
 
 def _train_autoencoder(
     X_scaled: np.ndarray,

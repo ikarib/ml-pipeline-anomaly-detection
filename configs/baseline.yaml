@@ -15,9 +15,21 @@ model_random_forest:
   n_estimators: 350
   max_depth: 10
   min_samples_leaf: 2
-  class_weight: "balanced_subsample"
+  class_weight: balanced_subsample
   random_state: 42
   feature_importance_path: artifacts/random_forest_feature_importance.csv
+
+model_xgboost:
+  test_size: 0.25
+  n_estimators: 350
+  learning_rate: 0.05
+  max_depth: 6
+  subsample: 0.9
+  colsample_bytree: 0.9
+  reg_lambda: 1.0
+  scale_pos_weight: 8.0
+  random_state: 42
+  feature_importance_path: artifacts/xgboost_feature_importance.csv
 
 model_autoencoder:
     epochs: 50

@@ -10,6 +10,7 @@ from anomaly_pipeline.feature_engineering import load_and_engineer_features
 from anomaly_pipeline.model_training import (
     train_isolation_forest,
     train_random_forest,
+    train_xgboost,
     train_autoencoder_anomaly_detector,
 )
 from anomaly_pipeline.reporting import metrics_table
@@ -17,6 +18,14 @@ from anomaly_pipeline.reporting import metrics_table
 def load_config(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
+
+
+def _write_feature_importance(result, output_path: str | None) -> None:
+    if not output_path or "feature_importance" not in result.artifacts:
+        return
+    result.artifacts["feature_importance"].to_csv(output_path, index=False)
+    print(f"Saved feature importance table to {output_path}")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -53,15 +62,15 @@ def main() -> None:
 
     iso = train_isolation_forest(X, y, options=config["model_isolation_forest"])
     rf = train_random_forest(X, y, options=config["model_random_forest"])
+    xgb = train_xgboost(X, y, options=config["model_xgboost"])
     ae = train_autoencoder_anomaly_detector(X, y, options=config["model_autoencoder"])
 
-    summary = metrics_table([iso, rf, ae])
+    summary = metrics_table([iso, rf, xgb, ae])
     summary.to_csv(metrics_path, index=False)
     print(f"Saved metrics summary table to {metrics_path}")
 
-    output_path = config['model_random_forest']['feature_importance_path']
-    rf.artifacts["feature_importance"].to_csv(output_path, index=False)
-    print(f"Saved feature importance table to {output_path}")
+    _write_feature_importance(rf, config["model_random_forest"].get("feature_importance_path"))
+    _write_feature_importance(xgb, config["model_xgboost"].get("feature_importance_path"))
 
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.plot(df["timestamp"], iso.scores, label="Isolation Forest anomaly score")

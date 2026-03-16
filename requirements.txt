@@ -5,3 +5,4 @@ pyyaml>=6.0
 scikit-learn>=1.4
 jupyter>=1.0
 torch>=2.2
+xgboost>=2.0
