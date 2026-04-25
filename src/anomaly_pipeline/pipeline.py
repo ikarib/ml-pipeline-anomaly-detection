@@ -8,6 +8,7 @@ import pandas as pd
 
 from anomaly_pipeline.feature_engineering import load_and_engineer_features
 from anomaly_pipeline.model_training import (
+    make_time_holdout_split,
     train_isolation_forest,
     train_random_forest,
     train_xgboost,
@@ -42,6 +43,18 @@ def main() -> None:
     metrics_path = config["output"]["metrics_path"]
 
     df, X, y = load_and_engineer_features(str(data_path), short_window, long_window)
+    evaluation_config = config.get("evaluation", {})
+    split = make_time_holdout_split(
+        df["timestamp"],
+        holdout_size=evaluation_config.get("holdout_size", 0.25),
+        n_samples=len(X),
+    )
+    print(
+        "Using chronological holdout: "
+        f"train rows={len(split.train_positions)}, "
+        f"holdout rows={len(split.holdout_positions)}, "
+        f"holdout start={split.holdout_start}"
+    )
 
     fig, ax = plt.subplots(figsize=(12, 4))
     ax.plot(df["timestamp"], df["pressure_psi"], label="Pressure (psi)")
@@ -60,10 +73,10 @@ def main() -> None:
     plt.close(fig)
     print(f"Saved pressure figure to {true_anomalies_path}")
 
-    iso = train_isolation_forest(X, y, options=config["model_isolation_forest"])
-    rf = train_random_forest(X, y, options=config["model_random_forest"])
-    xgb = train_xgboost(X, y, options=config["model_xgboost"])
-    ae = train_autoencoder_anomaly_detector(X, y, options=config["model_autoencoder"])
+    iso = train_isolation_forest(X, y, options=config["model_isolation_forest"], split=split)
+    rf = train_random_forest(X, y, options=config["model_random_forest"], split=split)
+    xgb = train_xgboost(X, y, options=config["model_xgboost"], split=split)
+    ae = train_autoencoder_anomaly_detector(X, y, options=config["model_autoencoder"], split=split)
 
     summary = metrics_table([iso, rf, xgb, ae])
     summary.to_csv(metrics_path, index=False)
@@ -72,9 +85,10 @@ def main() -> None:
     _write_feature_importance(rf, config["model_random_forest"].get("feature_importance_path"))
     _write_feature_importance(xgb, config["model_xgboost"].get("feature_importance_path"))
 
+    holdout_df = df.iloc[split.holdout_positions]
     fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(df["timestamp"], iso.scores, label="Isolation Forest anomaly score")
-    ax.set_title("Isolation Forest Scores Over Time")
+    ax.plot(holdout_df["timestamp"], iso.scores, label="Isolation Forest anomaly score")
+    ax.set_title("Isolation Forest Scores on Holdout Window")
     ax.set_xlabel("Timestamp")
     ax.set_ylabel("Anomaly score")
     fig.tight_layout()

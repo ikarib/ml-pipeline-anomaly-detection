@@ -73,24 +73,23 @@ The autoencoder is here to show a neural approach based on reconstruction error.
 
 ## Current results
 
-Results below were regenerated from the included sample dataset.
+Results below were regenerated from the included sample dataset. Metrics are reported only on the chronological 25% holdout window, which starts at `2025-01-23 12:00:00`.
 
 | model | precision | recall | f1 | roc_auc |
 |---|---:|---:|---:|---:|
 | XGBoost | 1.000 | 1.000 | 1.000 | 1.000 |
-| Random Forest | 1.000 | 0.974 | 0.987 | 1.000 |
-| Isolation Forest | 0.727 | 0.842 | 0.780 | 0.986 |
-| PyTorch Autoencoder | 0.759 | 0.579 | 0.657 | 0.947 |
+| Random Forest | 1.000 | 1.000 | 1.000 | 1.000 |
+| Isolation Forest | 0.733 | 1.000 | 0.846 | 0.991 |
+| PyTorch Autoencoder | 0.579 | 1.000 | 0.733 | 0.985 |
 
 A few takeaways:
-- XGBoost is now the strongest supervised baseline in the repo, recovering the one anomaly that Random Forest misses.
-- Random Forest remains very strong and easier to explain, so it is still a useful reference model.
-- Isolation Forest is still more useful than the autoencoder when recall matters and labels are unavailable.
-- The autoencoder is viable, but it remains sensitive to threshold choice and loses recall at the selected operating point.
+- XGBoost and Random Forest both recover the future anomaly window cleanly under the time split.
+- Isolation Forest keeps full recall on the future window, with a few false positives.
+- The autoencoder also catches all future anomaly rows, but its train-calibrated threshold creates more false positives than Isolation Forest.
 
 ## Why I picked the current autoencoder threshold
 
-The default autoencoder threshold uses the 96th percentile of reconstruction error. Lower thresholds created too many alerts, while higher thresholds suppressed medium-strength anomalies. The full threshold sweep is saved in `artifacts/autoencoder_threshold_sweep.csv`.
+The default autoencoder threshold uses the 96th percentile of training normal-row reconstruction error. Lower thresholds created too many alerts, while higher thresholds suppressed medium-strength anomalies. The holdout threshold sweep is saved in `artifacts/autoencoder_threshold_sweep.csv`.
 
 ## Quick start
 
@@ -112,14 +111,14 @@ make pipeline
 ## Key files to inspect first
 
 - `docs/experiment_notes.md` for the modeling story
-- `artifacts/metrics_summary.csv` for the headline numbers
+- `artifacts/metrics_summary.csv` for the holdout-only headline numbers
 - `artifacts/random_forest_feature_importance.csv` for the benchmark tree baseline
 - `artifacts/xgboost_feature_importance.csv` for boosted-tree interpretability
 - `docs/what_did_not_work.md` for the non-polished part of the project
 
 ## Next extensions I would do
 
-- train/test splits based on time rather than random holdout,
+- rolling or blocked cross-validation windows,
 - drift-aware monitoring,
 - event grouping so adjacent anomaly rows are handled as incidents,
 - geospatial context if this were tied to an actual asset network,

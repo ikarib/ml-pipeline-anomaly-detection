@@ -33,7 +33,7 @@ def engineer_features(df: pd.DataFrame, short_window: int, long_window: int) -> 
     feature_columns = ["pressure_flow_ratio","hour_sin","hour_cos"]
     df["pressure_flow_ratio"] = (
         df["pressure_psi"] / df["flow_rate_m3h"].replace(0, np.nan)
-    ).bfill().ffill()
+    ).ffill().fillna(0.0)
 
     hour_fraction = df["timestamp"].dt.hour + df["timestamp"].dt.minute / 60.0
     df["hour_sin"] = np.sin(2 * np.pi * hour_fraction / 24.0)

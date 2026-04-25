@@ -5,13 +5,15 @@ features:
   short_rolling_window: 5
   long_rolling_window: 12
 
+evaluation:
+  holdout_size: 0.25
+
 model_isolation_forest:
   contamination: 0.06
   random_state: 42
   n_estimators: 300
 
 model_random_forest:
-  test_size: 0.25
   n_estimators: 350
   max_depth: 10
   min_samples_leaf: 2
@@ -20,7 +22,6 @@ model_random_forest:
   feature_importance_path: artifacts/random_forest_feature_importance.csv
 
 model_xgboost:
-  test_size: 0.25
   n_estimators: 350
   learning_rate: 0.05
   max_depth: 6

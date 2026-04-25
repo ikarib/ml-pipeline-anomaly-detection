@@ -1,4 +1,4 @@
-.PHONY: install data train pipeline notebook clean
+.PHONY: install data train pipeline notebook test clean
 
 ifeq ($(OS),Windows_NT)
 RM_CACHE = rd /s /q __pycache__ 2>nul || exit /b 0
@@ -21,6 +21,9 @@ pipeline: data train
 
 notebook:
 	jupyter notebook notebooks/anomaly_detection.ipynb
+
+test:
+	python -m pytest
 
 clean:
 	$(RM_CACHE)

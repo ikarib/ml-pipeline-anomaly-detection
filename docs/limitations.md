@@ -13,5 +13,5 @@ This project is stronger than a minimal demo, but it is still a portfolio sample
 
 4. **No deployment layer**
    There is no model serving, alert routing, or retraining logic in this repository. The focus is experimentation and explanation.
-5. **Random holdout for the supervised model**
-   The Random Forest benchmark uses a random split. That is fine for a compact demo, but a production evaluation should use a time-based split to avoid leakage from nearby patterns.
+5. **Single future holdout**
+   The models now use a chronological future holdout, but it is still only one split. A stronger production-style evaluation would use rolling or blocked validation windows across multiple regimes.

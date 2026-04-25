@@ -38,27 +38,27 @@ I did not jump straight to sequence models because the first thing I wanted to t
 
 ### Isolation Forest
 
-This worked reasonably well as a label-light baseline. It found many anomalous windows, but the tradeoff was false positives around regime changes.
+This worked reasonably well as a label-light baseline. On the chronological holdout it found all anomaly rows, with a small number of false positives.
 
-Observed metrics: precision `0.727`, recall `0.842`, f1 `0.780`, roc_auc `0.986`.
+Observed holdout metrics: precision `0.733`, recall `1.000`, f1 `0.846`, roc_auc `0.991`.
 
 ### Random Forest
 
 This stayed very strong on the labeled sample and remained a useful benchmark for interpretable supervised learning. The main lesson was not "Random Forest is always best," but that the engineered features capture enough local structure to make supervised learning highly effective on this dataset.
 
-Observed metrics: precision `1.000`, recall `0.974`, f1 `0.987`, roc_auc `1.000`.
+Observed holdout metrics: precision `1.000`, recall `1.000`, f1 `1.000`, roc_auc `1.000`.
 
 ### XGBoost
 
 XGBoost is now the only boosted-tree baseline in the repo, and it remains the strongest supervised model on this sample. Its performance suggests that the anomaly patterns are highly learnable from the engineered tabular features and benefit from boosted-tree fitting.
 
-Observed metrics: precision `1.000`, recall `1.000`, f1 `1.000`, roc_auc `1.000`.
+Observed holdout metrics: precision `1.000`, recall `1.000`, f1 `1.000`, roc_auc `1.000`.
 
 ### Autoencoder
 
-The autoencoder trained cleanly and produced a sensible reconstruction-error ranking. However, its practical usefulness still depends heavily on thresholding. With the current setting, precision is acceptable but recall is weaker than Isolation Forest and much weaker than the supervised tree models.
+The autoencoder trained cleanly and produced a sensible reconstruction-error ranking. Its threshold is now calibrated from training reconstruction errors only, then evaluated on the future holdout. With the current setting it catches the future anomaly window, but at the cost of more false positives than Isolation Forest.
 
-Observed metrics: precision `0.759`, recall `0.579`, f1 `0.657`, roc_auc `0.947`.
+Observed holdout metrics: precision `0.579`, recall `1.000`, f1 `0.733`, roc_auc `0.985`.
 
 ## Feature importance notes
 
@@ -66,19 +66,18 @@ The strongest supervised feature stays consistent across the tree baselines that
 
 ## Comparison takeaways
 
-XGBoost wins when labels are available and the anomaly patterns are encoded well by the engineered features. On this sample it recovers the last missed supervised anomaly and moves from Random Forest's near-perfect result to perfect precision and recall.
+XGBoost and Random Forest are tied on the current chronological holdout. Both recover the future anomaly window without false positives.
 
 Random Forest still has a strong role as a simpler supervised benchmark. It is easier to explain, produces stable feature rankings, and lands close enough to XGBoost that the practical gap here is small.
 
 Isolation Forest wins on the label-light story. It does not match the supervised models, but it remains the strongest option in this repo when you assume labels are missing or delayed and you still want useful recall.
 
-The autoencoder loses on this version of the problem because the dataset is relatively small and the tabular feature engineering already makes the anomalies easy for tree models to isolate. Its ranking signal is sensible, but the chosen threshold leaves too much recall on the table.
+The autoencoder trails on this version of the problem because the dataset is relatively small and the tabular feature engineering already makes the anomalies easy for tree models to isolate. Its ranking signal is sensible, but the train-calibrated threshold is noisier than the Isolation Forest operating point.
 
 ## What I would do next
 
 For a stronger production-style version, I would:
-- evaluate on a true future holdout window,
 - convert point anomalies into event-level alerts,
 - add calibration logic for alert volume,
 - stress-test XGBoost under stronger regime drift,
-- compare supervised models under time-based validation instead of random holdout.
+- compare models across multiple rolling or blocked validation windows.
