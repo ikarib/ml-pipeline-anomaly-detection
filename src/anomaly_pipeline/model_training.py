@@ -38,6 +38,8 @@ class TimeHoldoutSplit:
     train_end: Any
     holdout_start: Any
     holdout_end: Any
+    fold_index: int | None = None
+    split_strategy: str = "holdout"
 
 
 class Autoencoder(nn.Module):
@@ -84,17 +86,63 @@ def _coerce_timestamp_series(timestamps: Any, n_samples: int | None = None) -> p
     return pd.Series(pd.to_datetime(ts, errors="raise"), name=ts.name)
 
 
-def _holdout_count(n_samples: int, holdout_size: float | int) -> int:
-    if isinstance(holdout_size, bool):
-        raise TypeError("holdout_size must be a float fraction or integer row count.")
-    if isinstance(holdout_size, float):
-        if not 0 < holdout_size < 1:
-            raise ValueError("Float holdout_size must be between 0 and 1.")
-        return int(np.ceil(n_samples * holdout_size))
-    holdout_count = int(holdout_size)
-    if holdout_count <= 0:
-        raise ValueError("Integer holdout_size must be positive.")
-    return holdout_count
+def _row_count(
+    n_samples: int,
+    value: float | int,
+    name: str,
+    *,
+    allow_zero: bool = False,
+) -> int:
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be a float fraction or integer row count.")
+    if isinstance(value, float):
+        if allow_zero and value == 0:
+            return 0
+        if not 0 < value < 1:
+            raise ValueError(f"Float {name} must be between 0 and 1.")
+        return int(np.ceil(n_samples * value))
+
+    count = int(value)
+    if allow_zero and count == 0:
+        return 0
+    if count <= 0:
+        raise ValueError(f"Integer {name} must be positive.")
+    return count
+
+
+def _make_split_from_ordered_positions(
+    ts: pd.Series,
+    ordered_positions: np.ndarray,
+    train_start: int,
+    train_end: int,
+    holdout_start: int,
+    holdout_end: int,
+    *,
+    fold_index: int | None,
+    split_strategy: str,
+) -> TimeHoldoutSplit:
+    train_positions = ordered_positions[train_start:train_end]
+    holdout_positions = ordered_positions[holdout_start:holdout_end]
+    if len(train_positions) == 0 or len(holdout_positions) == 0:
+        raise ValueError("Time split windows must include train and holdout rows.")
+
+    train_end_timestamp = ts.iloc[train_positions].max()
+    holdout_start_timestamp = ts.iloc[holdout_positions].min()
+    holdout_end_timestamp = ts.iloc[holdout_positions].max()
+    if train_end_timestamp >= holdout_start_timestamp:
+        raise ValueError(
+            "Time split boundary overlaps: train_end must be earlier than holdout_start."
+        )
+
+    return TimeHoldoutSplit(
+        train_positions=train_positions,
+        holdout_positions=holdout_positions,
+        train_end=train_end_timestamp,
+        holdout_start=holdout_start_timestamp,
+        holdout_end=holdout_end_timestamp,
+        fold_index=fold_index,
+        split_strategy=split_strategy,
+    )
 
 
 def make_time_holdout_split(
@@ -105,29 +153,95 @@ def make_time_holdout_split(
     """Return train and holdout iloc positions split by time order."""
     ts = _coerce_timestamp_series(timestamps, n_samples=n_samples)
     sample_count = len(ts)
-    holdout_count = _holdout_count(sample_count, holdout_size)
+    holdout_count = _row_count(sample_count, holdout_size, "holdout_size")
     if holdout_count >= sample_count:
         raise ValueError("Holdout split must leave at least one training row.")
 
     ordered_positions = ts.sort_values(kind="mergesort").index.to_numpy(dtype=int)
-    train_positions = ordered_positions[:-holdout_count]
-    holdout_positions = ordered_positions[-holdout_count:]
-
-    train_end = ts.iloc[train_positions].max()
-    holdout_start = ts.iloc[holdout_positions].min()
-    holdout_end = ts.iloc[holdout_positions].max()
-    if train_end >= holdout_start:
-        raise ValueError(
-            "Time split boundary overlaps: train_end must be earlier than holdout_start."
-        )
-
-    return TimeHoldoutSplit(
-        train_positions=train_positions,
-        holdout_positions=holdout_positions,
-        train_end=train_end,
-        holdout_start=holdout_start,
-        holdout_end=holdout_end,
+    return _make_split_from_ordered_positions(
+        ts,
+        ordered_positions,
+        train_start=0,
+        train_end=sample_count - holdout_count,
+        holdout_start=sample_count - holdout_count,
+        holdout_end=sample_count,
+        fold_index=None,
+        split_strategy="holdout",
     )
+
+
+def make_time_cv_splits(
+    timestamps: Any,
+    *,
+    strategy: str = "rolling",
+    train_size: float | int = 0.5,
+    holdout_size: float | int = 0.1,
+    step_size: float | int | None = None,
+    gap_size: float | int = 0,
+    n_splits: int | None = None,
+    n_samples: int | None = None,
+) -> list[TimeHoldoutSplit]:
+    """Create leakage-safe rolling or blocked cross-validation windows.
+
+    Rolling windows use an expanding training period. Blocked windows use a
+    fixed-width training block that slides forward through time.
+    """
+    ts = _coerce_timestamp_series(timestamps, n_samples=n_samples)
+    sample_count = len(ts)
+    train_count = _row_count(sample_count, train_size, "train_size")
+    holdout_count = _row_count(sample_count, holdout_size, "holdout_size")
+    gap_count = _row_count(sample_count, gap_size, "gap_size", allow_zero=True)
+    step_count = (
+        holdout_count
+        if step_size is None
+        else _row_count(sample_count, step_size, "step_size")
+    )
+    if n_splits is not None and n_splits <= 0:
+        raise ValueError("n_splits must be positive when provided.")
+    if train_count + gap_count + holdout_count > sample_count:
+        raise ValueError("Cross-validation windows do not fit in the dataset.")
+
+    split_strategy = strategy.lower().replace("_", "-")
+    if split_strategy not in {"rolling", "blocked"}:
+        raise ValueError("strategy must be either 'rolling' or 'blocked'.")
+
+    ordered_positions = ts.sort_values(kind="mergesort").index.to_numpy(dtype=int)
+    splits: list[TimeHoldoutSplit] = []
+    cursor = train_count
+    fold_index = 1
+    while True:
+        if split_strategy == "rolling":
+            train_start = 0
+            train_end = cursor
+        else:
+            train_start = cursor - train_count
+            train_end = cursor
+
+        holdout_start = train_end + gap_count
+        holdout_end = holdout_start + holdout_count
+        if holdout_end > sample_count:
+            break
+
+        splits.append(
+            _make_split_from_ordered_positions(
+                ts,
+                ordered_positions,
+                train_start=train_start,
+                train_end=train_end,
+                holdout_start=holdout_start,
+                holdout_end=holdout_end,
+                fold_index=fold_index,
+                split_strategy=split_strategy,
+            )
+        )
+        fold_index += 1
+        if n_splits is not None and len(splits) >= n_splits:
+            break
+        cursor += step_count
+
+    if not splits:
+        raise ValueError("No cross-validation windows could be created.")
+    return splits
 
 
 def _resolve_time_split(
@@ -166,6 +280,8 @@ def _split_xy(
 
 def _split_artifacts(split: TimeHoldoutSplit) -> dict[str, Any]:
     return {
+        "fold_index": split.fold_index,
+        "split_strategy": split.split_strategy,
         "train_rows": int(len(split.train_positions)),
         "holdout_rows": int(len(split.holdout_positions)),
         "train_end": split.train_end,

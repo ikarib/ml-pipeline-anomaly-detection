@@ -74,10 +74,16 @@ Isolation Forest wins on the label-light story. It does not match the supervised
 
 The autoencoder trails on this version of the problem because the dataset is relatively small and the tabular feature engineering already makes the anomalies easy for tree models to isolate. Its ranking signal is sensible, but the train-calibrated threshold is noisier than the Isolation Forest operating point.
 
+## Validation design
+
+The main headline table still uses one final chronological holdout so the reported numbers answer a simple "future window" question. The pipeline now also runs rolling cross-validation by default: five walk-forward folds, a 50% initial training window, a 10% holdout horizon, and a 10% step size. This gives a better read on stability across earlier periods without letting future rows leak into training.
+
+The same generator can run fixed-width blocked windows by setting `evaluation.cross_validation.strategy` to `blocked`. Rolling windows expand the training period each fold; blocked windows keep the training window size fixed and slide it forward.
+
 ## What I would do next
 
 For a stronger production-style version, I would:
 - convert point anomalies into event-level alerts,
 - add calibration logic for alert volume,
 - stress-test XGBoost under stronger regime drift,
-- compare models across multiple rolling or blocked validation windows.
+- add more realistic operating states and maintenance intervals.

@@ -7,6 +7,14 @@ features:
 
 evaluation:
   holdout_size: 0.25
+  cross_validation:
+    enabled: true
+    strategy: rolling
+    train_size: 0.5
+    holdout_size: 0.1
+    step_size: 0.1
+    gap_size: 0
+    n_splits: 5
 
 model_isolation_forest:
   contamination: 0.06
@@ -45,3 +53,5 @@ output:
   true_anomalies_path: artifacts/true_anomalies.png
   isolation_forest_scores_path: artifacts/isolation_forest_scores.png
   metrics_path: artifacts/metrics_summary.csv
+  cv_fold_metrics_path: artifacts/cv_fold_metrics.csv
+  cv_metrics_path: artifacts/cv_metrics_summary.csv

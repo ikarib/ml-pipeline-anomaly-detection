@@ -13,5 +13,5 @@ This project is stronger than a minimal demo, but it is still a portfolio sample
 
 4. **No deployment layer**
    There is no model serving, alert routing, or retraining logic in this repository. The focus is experimentation and explanation.
-5. **Single future holdout**
-   The models now use a chronological future holdout, but it is still only one split. A stronger production-style evaluation would use rolling or blocked validation windows across multiple regimes.
+5. **Limited validation history**
+   The models now use a chronological future holdout plus rolling or blocked validation windows. This is stronger than a single random split, but the sample dataset is still short and synthetic, so the validation windows do not cover the full range of drift and maintenance states a live system would show.

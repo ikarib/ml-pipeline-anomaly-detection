@@ -6,6 +6,7 @@ import pytest
 
 from anomaly_pipeline.feature_engineering import engineer_features
 from anomaly_pipeline.model_training import (
+    make_time_cv_splits,
     make_time_holdout_split,
     train_autoencoder_anomaly_detector,
     train_isolation_forest,
@@ -67,6 +68,68 @@ def test_time_holdout_split_rejects_overlapping_boundary_timestamps() -> None:
 
     with pytest.raises(ValueError, match="boundary overlaps"):
         make_time_holdout_split(timestamps, holdout_size=1)
+
+
+def test_rolling_cv_splits_expand_training_window() -> None:
+    timestamps = pd.Series(pd.date_range("2025-01-01", periods=10, freq="h"))
+
+    splits = make_time_cv_splits(
+        timestamps,
+        strategy="rolling",
+        train_size=4,
+        holdout_size=2,
+        step_size=2,
+    )
+
+    assert len(splits) == 3
+    assert splits[0].train_positions.tolist() == [0, 1, 2, 3]
+    assert splits[0].holdout_positions.tolist() == [4, 5]
+    assert splits[1].train_positions.tolist() == [0, 1, 2, 3, 4, 5]
+    assert splits[1].holdout_positions.tolist() == [6, 7]
+    assert splits[2].train_positions.tolist() == [0, 1, 2, 3, 4, 5, 6, 7]
+    assert splits[2].holdout_positions.tolist() == [8, 9]
+    assert [split.fold_index for split in splits] == [1, 2, 3]
+    assert all(split.split_strategy == "rolling" for split in splits)
+
+
+def test_blocked_cv_splits_use_fixed_width_training_window() -> None:
+    timestamps = pd.Series(pd.date_range("2025-01-01", periods=10, freq="h"))
+
+    splits = make_time_cv_splits(
+        timestamps,
+        strategy="blocked",
+        train_size=4,
+        holdout_size=2,
+        step_size=2,
+    )
+
+    assert len(splits) == 3
+    assert splits[0].train_positions.tolist() == [0, 1, 2, 3]
+    assert splits[0].holdout_positions.tolist() == [4, 5]
+    assert splits[1].train_positions.tolist() == [2, 3, 4, 5]
+    assert splits[1].holdout_positions.tolist() == [6, 7]
+    assert splits[2].train_positions.tolist() == [4, 5, 6, 7]
+    assert splits[2].holdout_positions.tolist() == [8, 9]
+    assert all(split.split_strategy == "blocked" for split in splits)
+
+
+def test_cv_gap_excludes_rows_between_train_and_holdout() -> None:
+    timestamps = pd.Series(pd.date_range("2025-01-01", periods=8, freq="h"))
+
+    split = make_time_cv_splits(
+        timestamps,
+        strategy="rolling",
+        train_size=3,
+        holdout_size=2,
+        step_size=2,
+        gap_size=1,
+        n_splits=1,
+    )[0]
+
+    assert split.train_positions.tolist() == [0, 1, 2]
+    assert split.holdout_positions.tolist() == [4, 5]
+    assert 3 not in split.train_positions
+    assert 3 not in split.holdout_positions
 
 
 def test_random_forest_reports_metrics_on_holdout_rows_only() -> None:

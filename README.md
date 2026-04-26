@@ -13,6 +13,8 @@ ml-pipeline-anomaly-detection/
 ├── artifacts/
 │   ├── autoencoder_threshold_sweep.csv
 │   ├── autoencoder_training_history.csv
+│   ├── cv_fold_metrics.csv
+│   ├── cv_metrics_summary.csv
 │   ├── isolation_forest_scores.png
 │   ├── metrics_summary.csv
 │   ├── random_forest_feature_importance.csv
@@ -87,6 +89,8 @@ A few takeaways:
 - Isolation Forest keeps full recall on the future window, with a few false positives.
 - The autoencoder also catches all future anomaly rows, but its train-calibrated threshold creates more false positives than Isolation Forest.
 
+The pipeline also runs leakage-safe rolling cross-validation by default. The configured windows use a 50% initial training period, 10% holdout horizon, 10% step size, and five folds. Per-fold metrics are saved to `artifacts/cv_fold_metrics.csv`; aggregate mean/std metrics, micro scores, and total confusion counts are saved to `artifacts/cv_metrics_summary.csv`. To use fixed-width blocked windows instead, set `evaluation.cross_validation.strategy` to `blocked` in `configs/baseline.yaml`.
+
 ## Why I picked the current autoencoder threshold
 
 The default autoencoder threshold uses the 96th percentile of training normal-row reconstruction error. Lower thresholds created too many alerts, while higher thresholds suppressed medium-strength anomalies. The holdout threshold sweep is saved in `artifacts/autoencoder_threshold_sweep.csv`.
@@ -112,13 +116,13 @@ make pipeline
 
 - `docs/experiment_notes.md` for the modeling story
 - `artifacts/metrics_summary.csv` for the holdout-only headline numbers
+- `artifacts/cv_metrics_summary.csv` for rolling cross-validation stability
 - `artifacts/random_forest_feature_importance.csv` for the benchmark tree baseline
 - `artifacts/xgboost_feature_importance.csv` for boosted-tree interpretability
 - `docs/what_did_not_work.md` for the non-polished part of the project
 
 ## Next extensions I would do
 
-- rolling or blocked cross-validation windows,
 - drift-aware monitoring,
 - event grouping so adjacent anomaly rows are handled as incidents,
 - geospatial context if this were tied to an actual asset network,
